@@ -1,6 +1,5 @@
-import collections
 import configparser
-import re
+import sys
 import time
 
 import bs4
@@ -10,12 +9,13 @@ import requests
 config = configparser.ConfigParser()
 config.read("settings.ini", "utf_8")
 
+wait_time = config.getint("General", "ScrapingWaitTime")
 user_agent = config["General"]["ScrapingUserAgent"]
 
 
 # requests.getのUA偽装
 def get_fakeua(url):
-    time.sleep(3)
+    time.sleep(wait_time)
     return requests.get(url, headers={"User-Agent": user_agent})
 
 
@@ -29,10 +29,14 @@ def read_thread_list():
 def get_script_res(thread_list):
     res_list = []
     for thread in thread_list:
+        thread_request = get_fakeua(
+            "https://swallow.5ch.net/test/read.cgi/livejupiter/" + thread + "/"
+        )
+        if thread_request.status_code == requests.codes.gone:
+            input("GONE規制に引っかかったと思われます。ScrapingWaitTimeを調整してください。ENTERキーで終了します。")
+            sys.exit()
         thread_soup = bs4.BeautifulSoup(
-            get_fakeua(
-                "https://swallow.5ch.net/test/read.cgi/livejupiter/" + thread + "/"
-            ).content,
+            thread_request.content,
             "html.parser",
         )
         res_list.extend(
